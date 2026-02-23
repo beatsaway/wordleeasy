@@ -201,11 +201,66 @@
     .credits-popup a { color: #538d4e; text-decoration: none; }
     .credits-popup a:hover { text-decoration: underline; }
     .credits-popup .api-credit { margin-top: 1rem; font-size: 0.8rem; color: #818384; }
+    /* How to play tutorial */
+    .tutorial-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+      pointer-events: auto;
+    }
+    .tutorial-overlay.open { display: block; }
+    .tutorial-spotlight {
+      position: fixed;
+      background: transparent;
+      border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.8);
+      pointer-events: none;
+      transition: left 0.2s, top 0.2s, width 0.2s, height 0.2s;
+    }
+    .tutorial-tooltip {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 2rem;
+      max-width: min(320px, 90vw);
+      background: #121213;
+      border: 1px solid #3a3a3c;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .tutorial-tooltip p { margin: 0 0 0.75rem; font-size: 0.95rem; line-height: 1.4; color: #fff; }
+    .tutorial-tooltip .tutorial-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; }
+    .tutorial-tooltip button { padding: 0.4rem 0.8rem; border-radius: 4px; font-weight: 600; cursor: pointer; border: none; }
+    .tutorial-tooltip .btn-next { background: #538d4e; color: #fff; }
+    .tutorial-tooltip .btn-done { background: #538d4e; color: #fff; }
+    .tutorial-tooltip .tutorial-dont-show { margin: 0.5rem 0 0; font-size: 0.85rem; color: #818384; }
+    .tutorial-tooltip .tutorial-dont-show input { margin-right: 0.4rem; }
+    .tutorial-q {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.2em;
+      height: 1.2em;
+      margin-left: 0.15em;
+      padding: 0;
+      font-size: 0.6em;
+      font-weight: 600;
+      border: 1px solid #565758;
+      border-radius: 50%;
+      background: transparent;
+      color: #818384;
+      cursor: pointer;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .tutorial-q:hover { color: #fff; border-color: #818384; }
   </style>
 </head>
 <body>
   <div class="game-wrap">
-    <h1>WORDLE</h1>
+    <h1>WORDLE<button type="button" class="tutorial-q" id="tutorialQBtn" title="How to play">?</button></h1>
     <button type="button" class="make-your-own" id="makeYourOwnBtn">Make your own wordle</button>
     <div class="board" id="board"></div><br>
     <div class="keyboard" id="keyboard"></div>
@@ -243,6 +298,27 @@
     </div>
   </div>
 
+  <div class="tutorial-overlay" id="tutorialOverlay">
+    <div class="tutorial-spotlight" id="tutorialSpotlight"></div>
+    <div class="tutorial-tooltip" id="tutorialTooltip">
+      <p id="tutorialTipText"></p>
+      <label class="tutorial-dont-show" id="tutorialDontShowWrap" style="display:none;"><input type="checkbox" id="tutorialDontShow"> Don't show this again</label>
+      <div class="tutorial-buttons">
+        <button type="button" class="btn-next" id="tutorialNext">Next</button>
+        <button type="button" class="btn-done" id="tutorialDone" style="display:none;">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="popup-overlay" id="howToPlayPopupOverlay">
+    <div class="popup">
+      <button type="button" class="popup-close" id="howToPlayPopupClose" aria-label="Close">&times;</button>
+      <h2 style="margin:0 0 0.75rem;">How to play</h2>
+      <p style="margin:0 0 1rem; font-size:0.95rem; color:#ccc;">Learn how to play with a short step-by-step guide.</p>
+      <button type="button" class="dismiss" id="howToPlayStartTutorial" style="width:100%; padding:0.6rem; background:#538d4e; color:#fff; border:none; border-radius:4px; font-weight:600; cursor:pointer;">Start tutorial</button>
+    </div>
+  </div>
+
   <script src="365.js"></script>
   <script>
     // Validate guesses via Free Dictionary API (https://api.dictionaryapi.dev)
@@ -252,6 +328,9 @@
     const ROWS = 6;
     const COLS = 5;
     const DAILY_STORAGE_KEY = 'wordle-daily';
+    const TUTORIAL_SKIP_KEY = 'wordle-tutorial-skip';
+    const TUTORIAL_DEMO_ANSWER = 'apple';
+    const TUTORIAL_DEMO_GUESSES = ['alive','alert','tangle','temple','apply','apple'];
     let answer = '';
     let currentRow = 0;
     let currentCol = 0;
@@ -306,19 +385,23 @@
     }
 
     function getResult(guess) {
+      return getResultFor(guess, answer);
+    }
+
+    function getResultFor(guess, targetWord) {
       const result = [];
       const used = {};
       for (let i = 0; i < COLS; i++) {
-        if (answer[i] === guess[i]) {
+        if (targetWord[i] === guess[i]) {
           result[i] = 'correct';
-          used[answer[i]] = (used[answer[i]] || 0) + 1;
+          used[targetWord[i]] = (used[targetWord[i]] || 0) + 1;
         }
       }
       for (let i = 0; i < COLS; i++) {
         if (result[i]) continue;
-        const count = (answer.match(new RegExp(guess[i], 'g')) || []).length;
+        const count = (targetWord.match(new RegExp(guess[i], 'g')) || []).length;
         const already = Object.keys(used).reduce((n, k) => n + (k === guess[i] ? used[k] : 0), 0);
-        if (answer.includes(guess[i]) && already < count) {
+        if (targetWord.includes(guess[i]) && already < count) {
           result[i] = 'present';
           used[guess[i]] = (used[guess[i]] || 0) + 1;
         } else result[i] = 'absent';
@@ -344,6 +427,138 @@
       try {
         localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify({ dayKey: getDayKey(), guesses: dailyGuesses }));
       } catch (e) {}
+    }
+
+    const TUTORIAL_STEPS = [
+      { selector: '#board', tip: 'Guess the 5-letter word. You have 6 tries.' },
+      { selector: '#keyboard', tip: 'Type letters here or use your keyboard. Press Enter to submit, Backspace to delete.' },
+      { selector: '#board', tip: 'Green = right letter, right spot. Yellow = right letter, wrong spot. Gray = not in the word. (Demo for "apple")' },
+      { selector: '#makeYourOwnBtn', tip: 'Create your own puzzle and share the link with friends.' },
+      { selector: '.game-wrap', tip: 'One word per day — your progress is saved. Have fun!' }
+    ];
+
+    function saveBoardState() {
+      const tiles = [];
+      for (let r = 0; r < board.children.length; r++) {
+        const row = [];
+        for (let c = 0; c < board.children[r].children.length; c++) {
+          const t = board.children[r].children[c];
+          row.push({ text: t.textContent, classes: Array.from(t.classList) });
+        }
+        tiles.push(row);
+      }
+      const keyStates = {};
+      keyboard.querySelectorAll('.key').forEach(k => {
+        const key = k.dataset.key;
+        if (key) keyStates[key] = Array.from(k.classList).filter(c => ['correct','present','absent'].includes(c));
+      });
+      return { tiles, keyStates };
+    }
+
+    function restoreBoardState(saved) {
+      if (!saved) return;
+      for (let r = 0; r < saved.tiles.length && r < board.children.length; r++) {
+        for (let c = 0; c < saved.tiles[r].length && c < board.children[r].children.length; c++) {
+          const t = board.children[r].children[c];
+          t.textContent = saved.tiles[r][c].text;
+          t.className = 'tile';
+          saved.tiles[r][c].classes.forEach(cl => t.classList.add(cl));
+        }
+      }
+      keyboard.querySelectorAll('.key').forEach(k => {
+        const key = k.dataset.key;
+        if (!key) return;
+        k.classList.remove('correct', 'present', 'absent');
+        (saved.keyStates[key] || []).forEach(c => k.classList.add(c));
+      });
+    }
+
+    function injectDemoForApple() {
+      for (let r = 0; r < TUTORIAL_DEMO_GUESSES.length; r++) {
+        const guess = TUTORIAL_DEMO_GUESSES[r];
+        const result = getResultFor(guess, TUTORIAL_DEMO_ANSWER);
+        const row = board.children[r];
+        for (let c = 0; c < COLS; c++) {
+          const tile = row.children[c];
+          tile.textContent = guess[c].toUpperCase();
+          tile.className = 'tile filled ' + result[c];
+          const keyBtn = keyboard.querySelector('[data-key="' + guess[c].toUpperCase() + '"]');
+          if (keyBtn && !keyBtn.classList.contains('correct')) {
+            keyBtn.classList.remove('present', 'absent');
+            keyBtn.classList.add(result[c]);
+          }
+        }
+      }
+    }
+
+    let savedStateBeforeDemo = null;
+
+    function runTutorial() {
+      const overlay = document.getElementById('tutorialOverlay');
+      const spotlight = document.getElementById('tutorialSpotlight');
+      const tipEl = document.getElementById('tutorialTipText');
+      const nextBtn = document.getElementById('tutorialNext');
+      const doneBtn = document.getElementById('tutorialDone');
+      const dontShowWrap = document.getElementById('tutorialDontShowWrap');
+      const dontShowCheck = document.getElementById('tutorialDontShow');
+      dontShowCheck.checked = false;
+      let step = 0;
+      savedStateBeforeDemo = null;
+
+      function closeTutorial() {
+        if (savedStateBeforeDemo) {
+          restoreBoardState(savedStateBeforeDemo);
+          savedStateBeforeDemo = null;
+        }
+        if (dontShowCheck.checked) {
+          try { localStorage.setItem(TUTORIAL_SKIP_KEY, '1'); } catch (e) {}
+        }
+        overlay.classList.remove('open');
+      }
+
+      function showStep() {
+        if (step >= TUTORIAL_STEPS.length) {
+          closeTutorial();
+          return;
+        }
+        const s = TUTORIAL_STEPS[step];
+        const el = document.querySelector(s.selector);
+        tipEl.textContent = s.tip;
+        nextBtn.style.display = step === TUTORIAL_STEPS.length - 1 ? 'none' : 'inline-block';
+        doneBtn.style.display = step === TUTORIAL_STEPS.length - 1 ? 'inline-block' : 'none';
+        dontShowWrap.style.display = step === TUTORIAL_STEPS.length - 1 ? 'block' : 'none';
+
+        if (step === 2 && !savedStateBeforeDemo) {
+          savedStateBeforeDemo = saveBoardState();
+          injectDemoForApple();
+        }
+
+        if (el) {
+          const r = el.getBoundingClientRect();
+          const pad = 4;
+          spotlight.style.left = (r.left - pad) + 'px';
+          spotlight.style.top = (r.top - pad) + 'px';
+          spotlight.style.width = (r.width + pad * 2) + 'px';
+          spotlight.style.height = (r.height + pad * 2) + 'px';
+          spotlight.style.visibility = 'visible';
+        } else {
+          spotlight.style.visibility = 'hidden';
+        }
+        overlay.classList.add('open');
+      }
+
+      nextBtn.onclick = () => { step++; showStep(); };
+      doneBtn.onclick = closeTutorial;
+      overlay.addEventListener('click', (e) => {
+        if (e.target !== overlay) return;
+        if (step === TUTORIAL_STEPS.length - 1) closeTutorial();
+        else { step++; showStep(); }
+      });
+      setTimeout(showStep, 300);
+    }
+
+    function openHowToPlayPopup() {
+      document.getElementById('howToPlayPopupOverlay').classList.add('open');
     }
 
     function init() {
@@ -418,9 +633,24 @@
       resultOverlay.addEventListener('click', (e) => { if (e.target === resultOverlay) resultOverlay.classList.remove('open'); });
 
       const creditsOverlay = document.getElementById('creditsPopupOverlay');
-      document.querySelector('h1').addEventListener('click', () => creditsOverlay.classList.add('open'));
+      document.querySelector('h1').addEventListener('click', (e) => {
+        if (e.target.id === 'tutorialQBtn') return;
+        creditsOverlay.classList.add('open');
+      });
       document.getElementById('creditsPopupClose').addEventListener('click', () => creditsOverlay.classList.remove('open'));
       creditsOverlay.addEventListener('click', (e) => { if (e.target === creditsOverlay) creditsOverlay.classList.remove('open'); });
+
+      document.getElementById('tutorialQBtn').addEventListener('click', (e) => { e.stopPropagation(); openHowToPlayPopup(); });
+
+      const howToPlayOverlay = document.getElementById('howToPlayPopupOverlay');
+      document.getElementById('howToPlayPopupClose').addEventListener('click', () => howToPlayOverlay.classList.remove('open'));
+      howToPlayOverlay.addEventListener('click', (e) => { if (e.target === howToPlayOverlay) howToPlayOverlay.classList.remove('open'); });
+      document.getElementById('howToPlayStartTutorial').addEventListener('click', () => {
+        howToPlayOverlay.classList.remove('open');
+        runTutorial();
+      });
+
+      if (!localStorage.getItem(TUTORIAL_SKIP_KEY)) runTutorial();
 
       const popup = document.getElementById('popupOverlay');
       document.getElementById('makeYourOwnBtn').addEventListener('click', () => { popup.classList.add('open'); });
