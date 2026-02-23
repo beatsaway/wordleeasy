@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wordle</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #121213;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1vmin;
+      overflow-x: hidden;
+    }
+    .game-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 95vw;
+    }
+    h1 {
+      font-size: 3vmin;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      margin: 0 0 0.5vmin;
+      cursor: pointer;
+      user-select: none;
+    }
+    h1:hover { opacity: 0.85; }
+    .make-your-own {
+      margin-bottom: 0.5vmin;
+      padding: 0.6vmin 1.5vmin;
+      font-size: 1.8vmin;
+      background: transparent;
+      color: #818384;
+      border: 1px solid #3a3a3c;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .make-your-own:hover { color: #fff; border-color: #565758; }
+    .board {
+      display: grid;
+      grid-template-rows: repeat(6, 1fr);
+      gap: 0.4vmin;
+      margin-bottom: 0.8vmin;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.4vmin;
+    }
+    .tile {
+      width: 7.5vmin;
+      height: 7.5vmin;
+      border: 2px solid #3a3a3c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8vmin;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .tile.filled { border-color: #565758; }
+    .tile.correct { background: #538d4e; border-color: #538d4e; }
+    .tile.present { background: #b59f3b; border-color: #b59f3b; }
+    .tile.absent { background: #3a3a3c; border-color: #3a3a3c; color: #565758; }
+    .tile.flip { animation: flip 0.5s ease; }
+    @keyframes flip {
+      0% { transform: scaleY(1); }
+      50% { transform: scaleY(0); }
+      100% { transform: scaleY(1); }
+    }
+    .keyboard {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4vmin;
+      width: 100%;
+      max-width: 95vw;
+    }
+    .keyrow { display: flex; justify-content: center; gap: 0.3vmin; }
+    .key {
+      flex: 1;
+      min-width: 0;
+      max-width: 7vmin;
+      height: 7vmin;
+      border: none;
+      border-radius: 4px;
+      background: #818384;
+      color: #fff;
+      font-size: 1.9vmin;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .key.wide { max-width: 10vmin; font-size: 1.5vmin; }
+    .key:hover { background: #565758; }
+    .key.correct { background: #538d4e; }
+    .key.present { background: #b59f3b; }
+    .key.absent { background: #3a3a3c; color: #565758; }
+    .message {
+      margin-top: 0.5vmin;
+      min-height: 2.5vmin;
+      font-size: 2vmin;
+    }
+    .message.win { color: #538d4e; }
+    .message.lose { color: #b59f3b; }
+    /* Popup */
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .popup-overlay.open { display: flex; }
+    .popup {
+      position: relative;
+      background: #121213;
+      border: 1px solid #3a3a3c;
+      border-radius: 8px;
+      padding: 1.25rem;
+      padding-top: 2.25rem;
+      max-width: 320px;
+      width: 100%;
+    }
+    .popup h2 {
+      margin: 0 0 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .popup-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: none;
+      border: none;
+      color: #818384;
+      font-size: 1.25rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0.25rem;
+    }
+    .popup-close:hover { color: #fff; }
+    .create-section input {
+      width: 120px;
+      padding: 0.5rem;
+      font-size: 1.25rem;
+      text-align: center;
+      text-transform: lowercase;
+      letter-spacing: 0.2em;
+      border: 2px solid #3a3a3c;
+      border-radius: 4px;
+      background: #121213;
+      color: #fff;
+      margin-right: 0.5rem;
+    }
+    .create-section button {
+      padding: 0.5rem 0.75rem;
+      background: #538d4e;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .create-section button:hover { background: #4a7d44; }
+    .create-section .link-box {
+      margin-top: 0.75rem;
+      font-size: 0.8rem;
+      word-break: break-all;
+      color: #818384;
+    }
+    .create-section .link-box a { color: #538d4e; }
+    .create-section .link-box button {
+      margin-left: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      background: #3a3a3c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .result-popup .popup-close { top: 0.5rem; right: 0.5rem; }
+    .result-popup .result-msg { font-size: 1.1rem; margin: 0 0 1rem; text-align: center; line-height: 1.4; }
+    .result-popup .result-msg.win { color: #538d4e; }
+    .result-popup .result-msg.lose { color: #b59f3b; }
+    .result-popup .result-answer { font-size: 0.9rem; color: #818384; margin-bottom: 1rem; }
+    .result-popup button.dismiss { width: 100%; padding: 0.6rem; background: #538d4e; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; }
+    .credits-popup .credits-line { margin: 0.5rem 0; font-size: 0.95rem; }
+    .credits-popup a { color: #538d4e; text-decoration: none; }
+    .credits-popup a:hover { text-decoration: underline; }
+    .credits-popup .api-credit { margin-top: 1rem; font-size: 0.8rem; color: #818384; }
+  </style>
+</head>
+<body>
+  <div class="game-wrap">
+    <h1>WORDLE</h1>
+    <button type="button" class="make-your-own" id="makeYourOwnBtn">Make your own wordle</button>
+    <div class="board" id="board"></div><br>
+    <div class="keyboard" id="keyboard"></div>
+    <div class="message" id="message"></div>
+  </div>
+
+  <div class="popup-overlay" id="popupOverlay">
+    <div class="popup">
+      <button type="button" class="popup-close" id="popupClose" aria-label="Close">&times;</button>
+      <h2>Create your own — share link for others to guess</h2>
+      <div class="create-section" id="createSection">
+        <input type="text" id="customWordInput" maxlength="5" placeholder="word" autocomplete="off">
+        <button type="button" id="createLinkBtn">Create link</button>
+        <div class="link-box" id="linkBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="popup-overlay" id="resultPopupOverlay">
+    <div class="popup result-popup">
+      <button type="button" class="popup-close" id="resultPopupClose" aria-label="Close">&times;</button>
+      <p class="result-msg" id="resultMsg"></p>
+      <p class="result-answer" id="resultAnswer"></p>
+      <button type="button" class="dismiss" id="resultDismiss">OK</button>
+    </div>
+  </div>
+
+  <div class="popup-overlay" id="creditsPopupOverlay">
+    <div class="popup credits-popup">
+      <button type="button" class="popup-close" id="creditsPopupClose" aria-label="Close">&times;</button>
+      <h2 style="margin:0 0 0.75rem;">Credits</h2>
+      <p class="credits-line">Developed by <a href="https://github.com/beatsaway" target="_blank" rel="noopener">Beats Away</a></p>
+      <p class="credits-line"><a href="https://buymeacoffee.com/beatsaway" target="_blank" rel="noopener">☕ Buy him a coffee</a></p>
+      <p class="api-credit">Word validation by <a href="https://github.com/meetDeveloper/freeDictionaryAPI" target="_blank" rel="noopener">Free Dictionary API</a> </p>
+    </div>
+  </div>
+
+  <script src="365.js"></script>
+  <script>
+    // Validate guesses via Free Dictionary API (https://api.dictionaryapi.dev)
+    const DICTIONARY_API = 'https://api.dictionaryapi.dev/api/v2/entries/en';
+    const wordCache = {}; // { word: true|false } to avoid repeated API calls
+
+    const ROWS = 6;
+    const COLS = 5;
+    const DAILY_STORAGE_KEY = 'wordle-daily';
+    let answer = '';
+    let currentRow = 0;
+    let currentCol = 0;
+    let gameOver = false;
+    let isDailyChallenge = false;
+    let dailyGuesses = [];
+
+    const board = document.getElementById('board');
+    const keyboard = document.getElementById('keyboard');
+    const messageEl = document.getElementById('message');
+
+    const keys = [
+      ['Q','W','E','R','T','Y','U','I','O','P'],
+      ['A','S','D','F','G','H','J','K','L'],
+      ['Enter','Z','X','C','V','B','N','M','Back']
+    ];
+
+    async function isValidWord(word) {
+      const w = word.toLowerCase();
+      if (wordCache[w] !== undefined) return wordCache[w];
+      try {
+        const res = await fetch(`${DICTIONARY_API}/${encodeURIComponent(w)}`);
+        wordCache[w] = res.ok;
+        return res.ok;
+      } catch {
+        wordCache[w] = false;
+        return false;
+      }
+    }
+
+    function getCustomWordFromUrl() {
+      const params = new URLSearchParams(location.search);
+      let word = params.get('word') || params.get('p');
+      if (params.get('p')) {
+        try { word = atob(word.replace(/-/g, '+').replace(/_/g, '/')); } catch { return null; }
+      }
+      if (!word || word.length !== 5) return null;
+      word = word.toLowerCase().replace(/[^a-z]/g, '');
+      return word.length === 5 ? word : null;
+    }
+
+    function getWordOfTheDay() {
+      const d = new Date();
+      const dayKey = d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
+      const index = Math.abs(dayKey) % WORDS.length;
+      return WORDS[index];
+    }
+
+    function getDayKey() {
+      const d = new Date();
+      return d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
+    }
+
+    function getResult(guess) {
+      const result = [];
+      const used = {};
+      for (let i = 0; i < COLS; i++) {
+        if (answer[i] === guess[i]) {
+          result[i] = 'correct';
+          used[answer[i]] = (used[answer[i]] || 0) + 1;
+        }
+      }
+      for (let i = 0; i < COLS; i++) {
+        if (result[i]) continue;
+        const count = (answer.match(new RegExp(guess[i], 'g')) || []).length;
+        const already = Object.keys(used).reduce((n, k) => n + (k === guess[i] ? used[k] : 0), 0);
+        if (answer.includes(guess[i]) && already < count) {
+          result[i] = 'present';
+          used[guess[i]] = (used[guess[i]] || 0) + 1;
+        } else result[i] = 'absent';
+      }
+      return result;
+    }
+
+    function applyGuessToRow(row, guess, result) {
+      for (let c = 0; c < COLS; c++) {
+        const tile = row.children[c];
+        tile.textContent = guess[c].toUpperCase();
+        tile.classList.add('filled', result[c]);
+        const keyBtn = keyboard.querySelector(`[data-key="${guess[c].toUpperCase()}"]`);
+        if (keyBtn && !keyBtn.classList.contains('correct')) {
+          keyBtn.classList.remove('present', 'absent');
+          keyBtn.classList.add(result[c]);
+        }
+      }
+    }
+
+    function saveDailyState() {
+      if (!isDailyChallenge) return;
+      try {
+        localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify({ dayKey: getDayKey(), guesses: dailyGuesses }));
+      } catch (e) {}
+    }
+
+    function init() {
+      const customWord = getCustomWordFromUrl();
+      answer = customWord || getWordOfTheDay();
+      isDailyChallenge = !customWord;
+      dailyGuesses = [];
+      currentRow = 0;
+      currentCol = 0;
+      gameOver = false;
+      messageEl.textContent = '';
+      messageEl.className = 'message';
+      board.innerHTML = '';
+      keyboard.innerHTML = '';
+
+      for (let r = 0; r < ROWS; r++) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        for (let c = 0; c < COLS; c++) {
+          const tile = document.createElement('div');
+          tile.className = 'tile';
+          tile.dataset.row = r;
+          tile.dataset.col = c;
+          row.appendChild(tile);
+        }
+        board.appendChild(row);
+      }
+
+      keys.forEach(rowKeys => {
+        const row = document.createElement('div');
+        row.className = 'keyrow';
+        rowKeys.forEach(k => {
+          const key = document.createElement('button');
+          key.className = 'key' + (k.length > 1 ? ' wide' : '');
+          key.textContent = k;
+          key.dataset.key = k;
+          key.addEventListener('click', () => handleKey(k));
+          row.appendChild(key);
+        });
+        keyboard.appendChild(row);
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace') handleKey('Back');
+        else if (e.key === 'Enter') handleKey('Enter');
+        else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+      });
+
+      if (isDailyChallenge) {
+        try {
+          const saved = JSON.parse(localStorage.getItem(DAILY_STORAGE_KEY) || 'null');
+          if (saved && saved.dayKey === getDayKey() && Array.isArray(saved.guesses) && saved.guesses.length > 0) {
+            dailyGuesses = saved.guesses;
+            for (let r = 0; r < dailyGuesses.length; r++) {
+              const guess = dailyGuesses[r];
+              const result = getResult(guess);
+              applyGuessToRow(board.children[r], guess, result);
+            }
+            currentRow = dailyGuesses.length;
+            gameOver = dailyGuesses[dailyGuesses.length - 1] === answer || dailyGuesses.length >= ROWS;
+            if (gameOver) {
+              messageEl.textContent = dailyGuesses[dailyGuesses.length - 1] === answer ? 'You win!' : 'Answer: ' + answer.toUpperCase();
+              messageEl.className = 'message ' + (dailyGuesses[dailyGuesses.length - 1] === answer ? 'win' : 'lose');
+            }
+          }
+        } catch (e) {}
+      }
+
+      const resultOverlay = document.getElementById('resultPopupOverlay');
+      document.getElementById('resultPopupClose').addEventListener('click', () => resultOverlay.classList.remove('open'));
+      document.getElementById('resultDismiss').addEventListener('click', () => resultOverlay.classList.remove('open'));
+      resultOverlay.addEventListener('click', (e) => { if (e.target === resultOverlay) resultOverlay.classList.remove('open'); });
+
+      const creditsOverlay = document.getElementById('creditsPopupOverlay');
+      document.querySelector('h1').addEventListener('click', () => creditsOverlay.classList.add('open'));
+      document.getElementById('creditsPopupClose').addEventListener('click', () => creditsOverlay.classList.remove('open'));
+      creditsOverlay.addEventListener('click', (e) => { if (e.target === creditsOverlay) creditsOverlay.classList.remove('open'); });
+
+      const popup = document.getElementById('popupOverlay');
+      document.getElementById('makeYourOwnBtn').addEventListener('click', () => { popup.classList.add('open'); });
+      document.getElementById('popupClose').addEventListener('click', () => { popup.classList.remove('open'); });
+      popup.addEventListener('click', (e) => { if (e.target === popup) popup.classList.remove('open'); });
+
+      const customInput = document.getElementById('customWordInput');
+      const createBtn = document.getElementById('createLinkBtn');
+      const linkBox = document.getElementById('linkBox');
+      customInput.addEventListener('input', () => { customInput.value = customInput.value.toLowerCase().replace(/[^a-z]/g, '').slice(0, 5); linkBox.textContent = ''; });
+      createBtn.addEventListener('click', async () => {
+        const w = customInput.value.trim().toLowerCase();
+        if (w.length !== 5) { linkBox.textContent = 'Enter 5 letters'; return; }
+        linkBox.textContent = 'Checking word…';
+        const valid = await isValidWord(w);
+        if (!valid) { linkBox.textContent = 'Not in dictionary. Try another word.'; return; }
+        const encoded = btoa(w);
+        const url = location.origin + location.pathname + '?p=' + encoded;
+        linkBox.innerHTML = 'Share: <a href="' + url + '" target="_blank" rel="noopener">' + url + '</a> <button type="button" id="copyBtn">Copy</button>';
+        linkBox.querySelector('#copyBtn').onclick = () => {
+          navigator.clipboard.writeText(url).then(() => { linkBox.querySelector('#copyBtn').textContent = 'Copied!'; });
+        };
+      });
+    }
+
+    function getRow() {
+      return board.children[currentRow];
+    }
+
+    function handleKey(key) {
+      if (gameOver) return;
+      if (key === 'Back') {
+        if (currentCol > 0) {
+          currentCol--;
+          getRow().children[currentCol].textContent = '';
+          getRow().children[currentCol].classList.remove('filled');
+        }
+        return;
+      }
+      if (key === 'Enter') {
+        if (currentCol !== COLS) return;
+        submitGuess();
+        return;
+      }
+      if (currentCol < COLS) {
+        const tile = getRow().children[currentCol];
+        tile.textContent = key;
+        tile.classList.add('filled');
+        currentCol++;
+      }
+    }
+
+    async function submitGuess() {
+      const row = getRow();
+      let guess = '';
+      for (let c = 0; c < COLS; c++) guess += row.children[c].textContent;
+      guess = guess.toLowerCase();
+
+      messageEl.textContent = 'Checking…';
+      messageEl.className = 'message';
+      const valid = await isValidWord(guess);
+      if (!valid) {
+        messageEl.textContent = 'Not in word list';
+        return;
+      }
+      messageEl.textContent = '';
+
+      const result = [];
+      const used = {};
+      for (let i = 0; i < COLS; i++) {
+        if (answer[i] === guess[i]) {
+          result[i] = 'correct';
+          used[answer[i]] = (used[answer[i]] || 0) + 1;
+        }
+      }
+      for (let i = 0; i < COLS; i++) {
+        if (result[i]) continue;
+        const count = (answer.match(new RegExp(guess[i], 'g')) || []).length;
+        const already = Object.keys(used).reduce((n, k) => n + (k === guess[i] ? used[k] : 0), 0);
+        if (answer.includes(guess[i]) && already < count) {
+          result[i] = 'present';
+          used[guess[i]] = (used[guess[i]] || 0) + 1;
+        } else result[i] = 'absent';
+      }
+
+      for (let c = 0; c < COLS; c++) {
+        const tile = row.children[c];
+        tile.classList.add(result[c], 'flip');
+        const keyBtn = keyboard.querySelector(`[data-key="${tile.textContent}"]`);
+        if (keyBtn && !keyBtn.classList.contains('correct')) {
+          keyBtn.classList.remove('present', 'absent');
+          keyBtn.classList.add(result[c]);
+        }
+      }
+
+      if (isDailyChallenge) {
+        dailyGuesses.push(guess);
+        saveDailyState();
+      }
+
+      if (guess === answer) {
+        gameOver = true;
+        messageEl.textContent = 'You win!';
+        messageEl.className = 'message win';
+        if (isDailyChallenge) showResultPopup(true);
+        return;
+      }
+      currentRow++;
+      currentCol = 0;
+      if (currentRow >= ROWS) {
+        gameOver = true;
+        messageEl.textContent = 'Answer: ' + answer.toUpperCase();
+        messageEl.className = 'message lose';
+        if (isDailyChallenge) showResultPopup(false);
+      }
+    }
+
+    function showResultPopup(won) {
+      const overlay = document.getElementById('resultPopupOverlay');
+      const msgEl = document.getElementById('resultMsg');
+      const answerEl = document.getElementById('resultAnswer');
+      if (won) {
+        msgEl.textContent = '🎉 You won the word of the day!';
+        msgEl.className = 'result-msg win';
+        answerEl.textContent = '';
+      } else {
+        msgEl.textContent = 'Never mind — do better next time!';
+        msgEl.className = 'result-msg lose';
+        answerEl.textContent = 'The word was: ' + answer.toUpperCase();
+      }
+      overlay.classList.add('open');
+    }
+
+    init();
+  </script>
+</body>
+</html>
